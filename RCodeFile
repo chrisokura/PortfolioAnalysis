@@ -1,0 +1,350 @@
+### PORTFOLIO ANALYSIS ###
+
+# Analyzing an investment portfolio consisting of an initial investment of $10,000 into 
+# Microsoft (MSFT), Boeing (BA), General Electric (GE), and Oracle (ORCL) 
+
+# Loading necessary packages
+library(corrplot)
+library(IntroCompFinR)
+library(PerformanceAnalytics)
+library(mvtnorm)
+library(dplyr)
+library(broom)
+
+getwd()
+setwd("C:/Users/Chris/Documents/Portfolio")
+
+## Portfolio Return Data (Downloaded from https://finance.yahoo.com/)
+# Data contains simple monthly return data from Jan. 1987 to April 2019
+# Initial Portfolio Weights hold 30% in BA, 20% in MSFT, 30% in GE, and 
+# 20% in ORCL
+RD <- read.csv(file = "PortfolioReturns.csv", stringsAsFactors = FALSE)
+RD <- RD[-389, ]
+RD$Date = seq(as.Date("1987-01-01"), as.Date("2019-04-01"), by = "months")
+PortWeights <- matrix(nrow = 4, c(.3, .2, .3, .2))
+rownames(PortWeights) <- c("BA", "MSFT", "GE", "ORCL")
+colnames(PortWeights) <- c("PortWeight")
+head(RD)
+
+## Summary Statistics
+sumRD <- sapply(RD[-389, 2:5], summary)
+write.table(RD, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(t(sumRD), "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+sumRD
+
+## More Asset Statistics 
+var.vec <- c(var(RD[,2]),var(RD[,3]), var(RD[,4]), var(RD[,5])) 
+kurt.vec <- c(kurtosis(RD[,2]),kurtosis(RD[,3]), kurtosis(RD[,4]), kurtosis(RD[,5]))
+sd.vec <- sqrt(var.vec) 
+skew.vec <- c(skewness(RD[,2]), skewness(RD[,3]), skewness(RD[,4]), skewness(RD[,5]))
+mean.vec <- sumRD[4,]
+mean.vec <- t(mean.vec)
+RD2 <- cbind(mean.vec[1,],var.vec, sd.vec, skew.vec, kurt.vec)
+colnames(RD2) <- c("mean", "var", "sd", "skewness", "kurtosis")
+rownames(RD2) <- c("ORCL", "BA", "GE", "MSFT")
+write.table(RD2, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+## RD2 contains mean, variance, sd, and skewness
+RD2
+
+## Plots for MSFT and BA monthly returns
+# *If graphs are unclear in plot window, margins may need to be adjusted*
+par(mfrow= c(1,2), mar = c(4,4,2,1.3))
+MSFT_Ret <- plot(RD$Date, RD[,5], type = "l", col = "blue", 
+                 lwd = 1.5, ylab = "return", main = "Monthly Returns", 
+                 ylim = c(-.4, .45), xlab = "Year")
+abline(h = 0, col = "black")
+legend("topright", legend = "MSFT", lty = 1, col = "blue", cex = .55, pt.cex = 1.3)
+
+BA_Ret <- plot(RD$Date, RD[,3], type = "l", col = "darkblue", 
+                 lwd = 1.5, ylab = "return", xlab = "Year", main = "Monthly Returns")
+abline(h = 0, col = "black")
+legend("bottomright", legend = "BA", lty = 1, col = "darkblue", cex = .55, pt.cex = 1.3)
+# dev.copy(png, "BA_MSFT_Returns.png")
+# dev.off()
+
+## Plots for ORCL and GE Monthly Returns
+GE_Ret <- plot(RD$Date, RD[,4], type = "l", col = "cadetblue4", xlab = "Year",
+            lwd = 1.5, ylab = "return", main = "Monthly Returns")
+abline(h = 0, col = "black")
+legend("topleft", legend = "GE", lty = 1, col = "cadetblue4", cex = .55, pt.cex = 1.3)
+
+ORCL_Ret <- plot(RD$Date, RD[,2], type = "l", col = "cyan4", 
+               lwd = 1.5, ylab = "return", xlab = "Year")
+abline(h = 0, col = "black")
+legend("topright", legend = "ORCL", lty = 1, col = "cyan4", cex = .55, pt.cex = 1.3)
+#dev.copy(png, "GE_ORCL_Returns.png")
+# dev.off()
+
+## Importing csv file containing yearly returns from 1987-2018
+YR <- read.csv(file = "YearlyReturns.csv", stringsAsFactors = FALSE)
+head(YR) 
+summary(YR[, 2:5]) #Summary of yearly return data in (%)
+
+#Plotting FV of $1 invested in these four assets from 1987-2018
+par(mfrow= c(1, 1))
+plot(YR$Year, YR$ORCL_FV, type = "l", lwd = 1.5, col = "blue", 
+     ylim = c(0, 700), xlim = c(1985,2018), ylab = "FV", xlab = "Year", main = "FV of $1 invested")
+points(YR$Year, YR$MSFT_FV, col = "red", type = "l", lwd = 1.5)
+points(YR$Year, YR$GE_FV, col = "cyan", type = "l", lwd = 1.5)
+points(YR$Year, YR$BA_FV, col = "blueviolet", type = "l", lwd = 1.5)
+legend("topleft", legend = c("ORCL", "BA", "MSFT", "GE"), cex = .6, lwd = 1.9,
+     pt.cex = 1.3, col = c("blue", "blueviolet", "red", "cyan"), lty =1)
+# dev.copy(png, "FVof$1.png")
+# dev.off()
+
+## Summary Statistics- 1- Mean Annual Return 2- Portfolio Variance 3- Portfolio SD
+summary(YR[, 2:5])
+AvgYR <- matrix(nrow = 4, colMeans(YR[, 2:5]))
+rownames(AvgYR) <- c("BA", "MSFT", "GE", "ORCL")
+colnames(AvgYR) <- "Avg Annual Return"
+VarYR <- matrix(nrow = 4, var(YR[,2:5])) /100
+names <- c("BA", "MSFT", "GE", "ORCL")
+rownames(VarYR) <- names
+colnames(VarYR) <- names
+VarYR #Covariance matrix
+PER <- data.frame(t(AvgYR)%*%PortWeights) #Portfolio expected annual return given initial weights
+colnames(PER) <- c("Expected Return")
+rownames(PER) <- "Initial Portfolio"
+PER
+PV <- t(PortWeights)%*%VarYR%*%PortWeights #Portfolio Variance
+PV
+PSD <- sqrt(PV)
+AssetVar <- c(VarYR[1,1], VarYR[2,2], VarYR[3,3], VarYR[4,4])
+AssetSD <- sqrt(AssetVar)
+
+## Simulating 1000 normal obervations from sample parameters calculated
+# from 1987-2019
+set.seed(43)
+n <- 1000
+head(AvgYR)
+head(VarYR)
+head(YR)
+dat <- rmvnorm(n, mean = c(AvgYR[,1]), sigma = VarYR)
+summary(dat)
+AssetMetrics <- matrix(nrow = 4, data = rep(1, 20))
+AssetMetrics <- cbind(c(apply(dat, 2, mean)), c(apply(dat, 2, var)),
+      c(apply(dat, 2, sd)), c(apply(dat, 2, skewness)), c(apply(dat, 2, kurtosis)))
+colnames(AssetMetrics) <- c("Mean", "Variance", "Std. Dev", "Skewness", "Kurtosis")
+AssetMetrics ## Stats from observed data (1987-2018)
+par(mfrow = c(3, 1), mar = c(4,4,2.5,1))
+
+## Scatter Plot of BA returns against MSFT, GE, & ORCL
+plot(YR[,2] , YR[,3], pch = 16, col = "blueviolet", main = "BA and MSFT Annual Return (%)",
+     ylab = "MSFT", xlab = "BA" )
+abline(lm(YR[,2] ~ YR[,3]), lwd = 1.5)
+
+plot(YR[,2] , YR[,4], pch = 16, col = "blue", main = "BA & GE",
+     ylab = "GE", xlab = "BA" )
+abline(lm(YR[,2] ~ YR[,4]), lwd = 1.5)
+
+plot(YR[,2] , YR[,5], pch = 16, col = "blue", main = "BA & ORCL",
+     ylab = "ORCL", xlab = "BA" )
+abline(lm(YR[,2] ~ YR[,5]), lwd = 1.5)
+#dev.copy(png, "CorrBA_MSFT_GE_ORCL")
+#dev.off()
+
+#Plotting Asset correlation
+par(mfrow = c(1,1), mar = c(3,3,3,3))
+cormat <- cor(YR[,2:5])
+cormat
+corrplot(cor(cormat), method = "ellipse")
+legend("top", legend = "Asset Correlation")
+#dev.copy(png, "AssetCorr.png")
+#dev.off()
+
+corr.vals <- c(g[1,2], g[1,3], g[1,4], g[2,3], g[2,4], g[3,4])
+corr.vals 
+
+## SE of the mean
+stddev.vals <- c(AssetMetrics[,3]) 
+nob <- nrow(YR)
+se.Mean <- stddev.vals/sqrt(nob)
+
+## SE of variance and std. dev
+# compute estimated standard errors for variance and sd
+AssetMetrics
+var.vals <- c(AssetMetrics[,2])
+se.var <- var.vals/sqrt(nob/2)
+se.stddev <- stddev.vals/sqrt(2*nob)
+SE.vals <- cbind(AssetMetrics[,1], se.Mean, var.vals, se.var, AssetMetrics[,3], se.stddev)
+colnames(SE.vals) <- c("Mean", "SE_Mean", "Var", "SE_Var", "Std.Dev", "SE_Std.Dev")
+SE.vals
+
+## Computing 95% confidence intervals for parameters
+meanLB <- AssetMetrics[,1] - 2*SE.vals[,2]
+meanUB <- AssetMetrics[,1] + 2*SE.vals[,2]
+varLB <- AssetMetrics[,2] - 2*SE.vals[,4]
+varUB <- AssetMetrics[,2] + 2*SE.vals[,4]
+sdLB <- AssetMetrics[,3] - 2*SE.vals[,6]
+sdUB <- AssetMetrics[,3] + 2*SE.vals[,6]
+SE.vals <- cbind(meanLB, AssetMetrics[,1], meanUB, se.Mean, varLB, var.vals, varUB,
+                 se.var, sdLB, AssetMetrics[,3], sdUB, se.stddev)
+colnames(SE.vals) <- c("MeanLB", "Mean", "MeanUB", "SE_Mean", "varLB",
+            "Var", "VarUB", "SE_Var", "sdLB", "Std.Dev", "sdUB", "SE_Std.Dev")
+SE.vals
+mean.sum <- SE.vals[,1:4]
+var.sum <- SE.vals[, 5:8]
+sd.sum <- SE.vals[, 9:12]
+
+## Saving data tables in an excel file 
+write.table(mean.sum, "PortfolioAnalytics.csv", sep = ",")
+write.table(var.sum, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(sd.sum, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(AssetMetrics,"PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(AssetMetrics,"PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(YR[,1:5],"PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(YR[, -(2:5)], "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(cormat, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(corr.vals, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+
+## Simulating possible portfolio allocations subject to:
+# (1) No short sales allowed (2) no one asset can make up over 50% of the portfolio
+b.s = seq(from= 0, to=.5, by=0.025)
+m.s = seq(from= 0, to=.5, by=0.025)
+g.s = seq(from=.5, to=.0, by=-0.025)
+o.s = seq(from=.5, to=0, by= -0.025)
+
+## PW = hypothetical portfolio weights subject to m.s + o.s + b.s + g.s = 1 with no short sales allowed
+PW <- matrix(c(b.s, m.s, g.s, o.s), ncol = 4, nrow = 21)
+names <- c("BA", "MSFT", "GE", "ORCL")
+colnames(PW) <- names
+head(PW)
+PR <- PW[,1]*AvgYR[1,] + PW[,2]*AvgYR[2,] + PW[,3]*AvgYR[3,] + PW[,4]*AvgYR[4,]
+PV <- PW[,1]^2*VarYR[1,1] + PW[,2]^2*VarYR[2,2] + PW[,3]^2*VarYR[3,3] + PW[,4]^2*VarYR[4,4] +
+       2*PW[,1]*PW[,2]*VarYR[1, 2] + 2*PW[,1]*PW[,3]*VarYR[1, 3] + 2*PW[,1]*PW[,4]*VarYR[1, 4] +
+       2*PW[,2]*PW[,3]*VarYR[2, 3] + 2*PW[,2]*PW[,4]*VarYR[2, 4] + 2*PW[,3]*PW[,4]*VarYR[3, 4]
+PSD <- sqrt(PV)
+PSD
+PortOptions <- matrix(data = c(PR, PSD), ncol = 2)
+colnames(PortOptions) <- c("Return", "Std.Dev")
+PortOptions <- cbind(PW[,1], PW[,2], PW[,3],PW[,4], PortOptions[,1], PortOptions[,2])
+colnames(PortOptions) <- c(names, "Return", "Std.Dev")
+head(PortOptions)
+write.table(PortOptions, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+
+## Plotting the Portfolio Frontier
+par(mfrow = c(1,1), mar = c(4,4,4,2))
+plot(PSD, PR, xlab = "Std. Dev", ylab = "Annual Return (%)", main = "Portfolio Frontier", pch = 16,
+     col = "blue", xlim = c(1.5, 4))
+points(2.68, 22.835, col = "green", pch = 16)
+dev.copy(png, "PF.png")
+dev.off()
+
+## Calculating the global minimum variance portfolio (no Short Sales)
+# Imposing no constraints on assets weights except asset weights must all be greater or equal to 0
+globalmin <- globalMin.portfolio(AvgYR, VarYR, shorts = FALSE)
+globalmin <- matrix(data = c(.4170, .1815, .4015, 0.0), nrow = 1)
+colnames(globalmin) <- names
+rownames(globalmin) <- c("share")
+gmReturn <- globalmin%*%AvgYR
+gmVar <- globalmin[,1]^2*VarYR[1,1] + globalmin[,2]^2*VarYR[2,2] + globalmin[,3]^2*VarYR[3,3] +
+  2*globalmin[,1]*globalmin[,2]*VarYR[1, 2] + 2*globalmin[,1]*globalmin[,3]*VarYR[1, 3] +
+  2*globalmin[,2]*globalmin[,3]*VarYR[2, 3]
+gmSD <- sqrt(gmVar)
+
+GlobalMinPortfolio <- matrix(ncol = 1,data = c(gmReturn, gmVar, gmSD))
+colnames(GlobalMinPortfolio) <- "Global Min. Port."
+rownames(GlobalMinPortfolio) <- c("Annual Return", "Variance", "SD")
+GlobalMinPortfolio
+globalmin
+par(mar = c(4,4,4,1))
+barplot(globalmin, main = "Portfolio Weights", col = "blue",
+        ylim = c(0, .47), ylab = "share", xlab = "Asset")
+text(2.5, .45, labels = c("GMVP (no short sales)"), cex = .75)
+write.table(GlobalMinPortfolio, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(globalmin, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+# dev.copy(png, "GMVP_noSS.png")
+# dev.off()
+
+
+### Calculating the global min variance portfolio- Short Sales Allowed ###
+globalmin2 <- globalMin.portfolio(AvgYR, VarYR, shorts = TRUE)
+globalmin2 <- matrix(data = c(.4103, .2017, .4384, -0.0503), nrow = 1)
+colnames(globalmin2) <- names
+rownames(globalmin2) <- c("share")
+AssetMetrics
+gmReturn2 <- globalmin2[1,]%*%AvgYR
+gmVar2 <- globalmin2[,1]^2*VarYR[1,1] + globalmin2[,2]^2*VarYR[2,2] + globalmin2[,3]^2*VarYR[3,3] +  globalmin2[,4]^2*VarYR[4,4] +
+ 2*globalmin2[,1]*globalmin2[,2]*VarYR[1, 2] + 2*globalmin2[,1]*globalmin2[,3]*VarYR[1, 3] +
+ 2*globalmin2[,2]*globalmin2[,3]*VarYR[2, 3] + 2*globalmin2[,1]*globalmin2[,4]*VarYR[1, 4] +
+ 2*globalmin2[,2]*globalmin2[,4]*VarYR[2, 4] + 2*globalmin2[,3]*globalmin2[,4]*VarYR[3, 4]
+gmSD2 <- sqrt(gmVar2)
+
+
+GlobalMinPortfolio2 <- matrix(ncol = 1,data = c(gmReturn2, gmVar2, gmSD2))
+colnames(GlobalMinPortfolio2) <- "Global Min. Port. SS"
+rownames(GlobalMinPortfolio2) <- c("Annual Return", "Variance", "SD")
+GlobalMinPortfolio2
+globalmin2
+globalmin2 <- data.frame(t(globalmin))
+write.table(GlobalMinPortfolio2, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+write.table(globalmin2, "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+
+
+## Incorporating a nominally risk free rate on US One-Year Treasury Bills of 1.97% (in July 2019)
+rf <- .0197
+
+# Combination of T-Bills &  BA (Short Sales allowed)
+BA.s <- seq(0, 2, by = .1) #Share in BA
+rf.s <- 1- BA.s
+BA.er <- rf + BA.s*(AvgYR[1,] - rf)
+BA.var <- BA.s^2*VarYR[1,1]
+BA.sd <- sqrt(BA.var)
+BA_Port <- cbind(BA.s, rf.s, BA.er, BA.var, BA.sd)
+colnames(BA_Port) <- c("BA.s", "rf.s", "ExpRet", "Var", "SD")
+BA_sr <- (AvgYR[1, ] - rf)/sqrt(var(YR[,2])) #Sharpe Ratio
+
+# Combination of T-Bills &  MSFT (Short Sales allowed)
+MSFT.s <- seq(0, 2, by = .1) #Share in MSFT
+rf.s <- 1 - MSFT.s
+MSFT.er <- rf + MSFT.s*(AvgYR[2,] - rf) #excess return
+MSFT.var <- MSFT.s^2*VarYR[2,2]
+MSFT.sd <- sqrt(MSFT.var)
+MSFT_Port <- cbind(MSFT.s, rf.s, MSFT.er, MSFT.var, MSFT.sd)
+colnames(BA_Port) <- c("MSFT.s", "rf.s", "ExpRet", "Var", "SD")
+MSFT_sr <- (AvgYR[2, ] - rf)/sqrt(var(YR[,3])) #Sharpe Ratio
+MSFT_sr
+
+# Combination of T-Bills &  GE (Short Sales allowed)
+GE.s <- seq(0, 2, by = .1) #Share in GE
+rf.s <- 1 - GE.s
+GE.er <- rf + GE.s*(AvgYR[3,] - rf) #excess return
+GE.var <- GE.s^2*VarYR[3,3]
+GE.sd <- sqrt(GE.var)
+GE_Port <- cbind(GE.s, rf.s, GE.er, GE.var, GE.sd)
+colnames(BA_Port) <- c("GE.s", "rf.s", "ExpRet", "Var", "SD")
+GE_sr <- (AvgYR[3, ] - rf)/sqrt(var(YR[,4])) #Sharpe Ratio
+GE_sr
+
+# Combination of T-Bills &  ORCL (Short Sales allowed)
+ORCL.s <- seq(0, 2, by = .1) #Share in ORCL
+rf.s <- 1 - ORCL.s
+ORCL.er <- rf + ORCL.s*(AvgYR[4,] - rf) #excess return
+ORCL.var <- ORCL.s^2*VarYR[4,4]
+ORCL.sd <- sqrt(ORCL.var)
+GE_Port <- cbind(ORCL.s, rf.s, ORCL.er, ORCL.var, ORCL.sd)
+colnames(BA_Port) <- c("ORCL.s", "rf.s", "ExpRet", "Var", "SD")
+ORCL_sr <- (AvgYR[4, ] - rf)/sqrt(var(YR[,5])) #Sharpe Ratio
+ORCL_sr
+
+SR <- c(BA_sr, MSFT_sr, GE_sr, ORCL_sr)
+SR
+
+#Asset Summary Stats
+sum <- as.table(cbind(AvgYR, AssetVar, AssetSD, SR))
+colnames(sum) <- c("AvgReturn", "Var", "SD", "Sharpe Ratio")
+sum
+write.table(sum, file = "PortfolioAnalytics.csv", sep = ",", append = TRUE)
+
+gmVar <- globalmin[,1]^2*VarYR[1,1] + globalmin[,2]^2*VarYR[2,2] + globalmin[,3]^2*VarYR[3,3] +
+  2*globalmin[,1]*globalmin[,2]*VarYR[1, 2] + 2*globalmin[,1]*globalmin[,3]*VarYR[1, 3] +
+  2*globalmin[,2]*globalmin[,3]*VarYR[2, 3]
+gmSD <- sqrt(gmVar)
+
+globalmin2 <- matrix(t(globalmin2), nrow = 1)
+globalmin2
+VarYR
+gmVar2 <- globalmin2[,1]^2*VarYR[1,1] + globalmin2[,2]^2*VarYR[2,2] + globalmin2[,3]^2*VarYR[3,3] +
+  2*globalmin2[,1]*globalmin2[,2]*VarYR[1, 2] + 2*globalmin2[,1]*globalmin2[,3]*VarYR[1, 3] +
+  2*globalmin2[,2]*globalmin2[,3]*VarYR[2, 3]
+gmSD2 <- sqrt(gmVar2)
